@@ -168,7 +168,7 @@ def main():
                 with col1:
                     rating = st.slider(
                         f"Rate this destination",
-                        0.0, 1.0, 0.5, 0.1,
+                        -1.0, 1.0, 0.0, 0.1,
                         key=f"rating_{idx}_{i}"
                     )
                 with col2:
