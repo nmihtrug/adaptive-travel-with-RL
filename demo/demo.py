@@ -101,9 +101,14 @@ def get_recommendations_linucb(agent, places, user, feature_columns, top_k=10):
     return recommendations, x
 
 
-def get_recommendations_ts(agent, places, user, feature_columns, top_k=10):
+def get_recommendations_ts(agent, places, user, feature_columns, top_k=10, seed=None):
     """Get top-k recommendations from Thompson Sampling."""
     x = context_to_vector(user, feature_columns)
+    
+    # Use seed for reproducibility within the same session
+    if seed is not None:
+        np.random.seed(seed)
+    
     sampled_rewards = []
     for arm in range(agent.n_arms):
         B_inv = np.linalg.inv(agent.B[arm])
@@ -235,20 +240,38 @@ def main():
     if selected_model != 'Epsilon-Greedy':
         st.caption(f"Personalized for User {selected_user_id}")
     
-    # Get recommendations
+    # Initialize session state for recommendations caching
+    cache_key = f"{selected_model}_{selected_user_id if selected_user_id is not None else 'none'}_{top_k}"
+    
+    if 'recommendations_cache_key' not in st.session_state or st.session_state.recommendations_cache_key != cache_key:
+        st.session_state.recommendations_cache_key = cache_key
+        st.session_state.cached_recommendations = None
+        st.session_state.cached_context = None
+        st.session_state.recommendation_seed = np.random.randint(0, 1000000)
+    
+    # Get recommendations (use cached if available)
     agent = st.session_state.models[selected_model]
     
-    if selected_model == 'Epsilon-Greedy':
-        recommendations = get_recommendations_egreedy(agent, st.session_state.places, top_k)
-        context_vector = None
-    elif selected_model == 'LinUCB':
-        recommendations, context_vector = get_recommendations_linucb(
-            agent, st.session_state.places, user, st.session_state.feature_columns, top_k
-        )
-    else:  # Thompson Sampling
-        recommendations, context_vector = get_recommendations_ts(
-            agent, st.session_state.places, user, st.session_state.feature_columns, top_k
-        )
+    if st.session_state.cached_recommendations is None:
+        if selected_model == 'Epsilon-Greedy':
+            recommendations = get_recommendations_egreedy(agent, st.session_state.places, top_k)
+            context_vector = None
+        elif selected_model == 'LinUCB':
+            recommendations, context_vector = get_recommendations_linucb(
+                agent, st.session_state.places, user, st.session_state.feature_columns, top_k
+            )
+        else:  # Thompson Sampling
+            recommendations, context_vector = get_recommendations_ts(
+                agent, st.session_state.places, user, st.session_state.feature_columns, top_k,
+                seed=st.session_state.recommendation_seed
+            )
+        
+        # Cache the recommendations
+        st.session_state.cached_recommendations = recommendations
+        st.session_state.cached_context = context_vector
+    else:
+        recommendations = st.session_state.cached_recommendations
+        context_vector = st.session_state.cached_context
     
     # Display recommendations in cards
     for i in range(0, len(recommendations), 2):
