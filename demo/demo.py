@@ -62,7 +62,7 @@ def context_to_vector(user, feature_columns):
 
 def get_recommendations_egreedy(agent, places, top_k=10):
     """Get top-k recommendations from Epsilon-Greedy."""
-    ranked_indices = np.argsort(agent.values)[::-1][:top_k]
+    ranked_indices = agent.select_arm()
     recommendations = []
     for idx in ranked_indices:
         recommendations.append({
@@ -79,14 +79,8 @@ def get_recommendations_egreedy(agent, places, top_k=10):
 def get_recommendations_linucb(agent, places, user, feature_columns, top_k=10):
     """Get top-k recommendations from LinUCB."""
     x = context_to_vector(user, feature_columns)
-    scores = []
-    for arm in range(len(places)):
-        A_inv = np.linalg.inv(agent.A[arm])
-        theta = A_inv @ agent.b[arm]
-        score = theta @ x + agent.alpha * np.sqrt(x @ A_inv @ x)
-        scores.append(score)
     
-    ranked_indices = np.argsort(scores)[::-1][:top_k]
+    ranked_indices, scores = agent.select_arm()
     recommendations = []
     for idx in ranked_indices:
         recommendations.append({
@@ -109,14 +103,7 @@ def get_recommendations_ts(agent, places, user, feature_columns, top_k=10, seed=
     if seed is not None:
         np.random.seed(seed)
     
-    sampled_rewards = []
-    for arm in range(agent.n_arms):
-        B_inv = np.linalg.inv(agent.B[arm])
-        mu_hat = B_inv @ agent.f[arm]
-        theta_sample = np.random.multivariate_normal(mu_hat, agent.alpha**2 * B_inv)
-        sampled_rewards.append(theta_sample @ x)
-    
-    ranked_indices = np.argsort(sampled_rewards)[::-1][:top_k]
+    ranked_indices, sampled_rewards = agent.select_arm()
     recommendations = []
     for idx in ranked_indices:
         recommendations.append({
