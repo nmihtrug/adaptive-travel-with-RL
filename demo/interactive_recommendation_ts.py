@@ -73,6 +73,9 @@ def main():
         st.session_state.agent = load_model()
         st.session_state.feedback_count = 0
         st.session_state.selected_user = 0
+        st.session_state.recommendation_seed = np.random.randint(0, 1000000)
+        st.session_state.cached_recommendations = None
+        st.session_state.cache_key = None
     
     if st.session_state.agent is None:
         st.stop()
@@ -115,21 +118,36 @@ def main():
     
     st.subheader(f"✈️ Top 10 Personalized Recommendations for User {st.session_state.selected_user}")
     
-    # Calculate Thompson Sampling scores
-    sampled_rewards = []
-    for arm in range(st.session_state.agent.n_arms):
-        B_inv = np.linalg.inv(st.session_state.agent.B[arm])
-        mu_hat = B_inv @ st.session_state.agent.f[arm]
-        theta_sample = np.random.multivariate_normal(mu_hat, st.session_state.agent.alpha**2 * B_inv)
-        sampled_rewards.append(theta_sample @ x)
+    # Create cache key based on user selection
+    cache_key = f"user_{st.session_state.selected_user}"
     
-    # Get top-10 recommendations
-    ranked_indices = np.argsort(sampled_rewards)[::-1][:10]
+    # Check if we need to regenerate recommendations
+    if st.session_state.cache_key != cache_key or st.session_state.cached_recommendations is None:
+        # Set random seed for reproducibility
+        np.random.seed(st.session_state.recommendation_seed)
+        
+        # Calculate Thompson Sampling scores
+        sampled_rewards = []
+        for arm in range(st.session_state.agent.n_arms):
+            B_inv = np.linalg.inv(st.session_state.agent.B[arm])
+            mu_hat = B_inv @ st.session_state.agent.f[arm]
+            theta_sample = np.random.multivariate_normal(mu_hat, st.session_state.agent.alpha**2 * B_inv)
+            sampled_rewards.append(theta_sample @ x)
+        
+        # Get top-10 recommendations
+        ranked_indices = np.argsort(sampled_rewards)[::-1][:10]
+        
+        # Cache the recommendations
+        st.session_state.cached_recommendations = [(idx, sampled_rewards[idx]) for idx in ranked_indices]
+        st.session_state.cache_key = cache_key
+    
+    # Use cached recommendations
+    ranked_recommendations = st.session_state.cached_recommendations
     
     # Display recommendations
     cols = st.columns(2)
     
-    for i, idx in enumerate(ranked_indices):
+    for i, (idx, score) in enumerate(ranked_recommendations):
         place = st.session_state.places[idx]
         col = cols[i % 2]
         
@@ -139,7 +157,7 @@ def main():
                 st.write(f"**Type:** {place['type']}")
                 st.write(f"**Rating:** {'⭐' * int(place['rating'])} ({place['rating']:.2f})")
                 st.write(f"**Keywords:** {', '.join(place['keywords'][:3])}")
-                st.write(f"**TS Score:** {sampled_rewards[idx]:.3f}")
+                st.write(f"**TS Score:** {score:.3f}")
                 
                 # User preference match
                 pref_match = user['prefs'].get(place['type'], 0)
@@ -157,6 +175,9 @@ def main():
                     if st.button("Submit", key=f"submit_{idx}_{i}"):
                         st.session_state.agent.update(idx, x, rating)
                         st.session_state.feedback_count += 1
+                        # Clear cache to show updated scores
+                        st.session_state.cached_recommendations = None
+                        st.session_state.cache_key = None
                         st.success("✅ Feedback recorded!")
                         st.rerun()
                 
@@ -164,6 +185,10 @@ def main():
     
     # Refresh button
     if st.button("🔄 Refresh Recommendations", use_container_width=True):
+        # Clear cache and generate new seed for fresh recommendations
+        st.session_state.cached_recommendations = None
+        st.session_state.cache_key = None
+        st.session_state.recommendation_seed = np.random.randint(0, 1000000)
         st.rerun()
 
 

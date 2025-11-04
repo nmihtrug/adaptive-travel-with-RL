@@ -243,11 +243,14 @@ def main():
     # Initialize session state for recommendations caching
     cache_key = f"{selected_model}_{selected_user_id if selected_user_id is not None else 'none'}_{top_k}"
     
+    # Initialize recommendation seed if not exists (persistent across all reruns)
+    if 'recommendation_seed' not in st.session_state:
+        st.session_state.recommendation_seed = np.random.randint(0, 1000000)
+    
     if 'recommendations_cache_key' not in st.session_state or st.session_state.recommendations_cache_key != cache_key:
         st.session_state.recommendations_cache_key = cache_key
         st.session_state.cached_recommendations = None
         st.session_state.cached_context = None
-        st.session_state.recommendation_seed = np.random.randint(0, 1000000)
     
     # Get recommendations (use cached if available)
     agent = st.session_state.models[selected_model]
@@ -315,6 +318,9 @@ def main():
                                     agent.update(rec['idx'], context_vector, rating)
                                 
                                 st.session_state.feedback_count[selected_model] += 1
+                                # Clear cache to show updated scores
+                                st.session_state.cached_recommendations = None
+                                st.session_state.cached_context = None
                                 st.success("✅ Thank you for your feedback!")
                                 st.rerun()
                         
@@ -324,6 +330,10 @@ def main():
     col1, col2, col3 = st.columns(3)
     with col1:
         if st.button("🔄 Refresh Recommendations", use_container_width=True):
+            # Clear cache and generate new seed for fresh recommendations
+            st.session_state.cached_recommendations = None
+            st.session_state.cached_context = None
+            st.session_state.recommendation_seed = np.random.randint(0, 1000000)
             st.rerun()
     
     with col2:
