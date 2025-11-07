@@ -90,7 +90,7 @@ def main():
     st.subheader("✈️ Top 10 Travel Recommendations")
     
     # Get top-10 recommendations
-    ranked_indices = np.argsort(st.session_state.agent.values)[::-1][:10]
+    ranked_indices = st.session_state.agent.select_arm(10)
     
     # Display recommendations
     cols = st.columns(2)
@@ -112,12 +112,12 @@ def main():
                 with col1:
                     rating = st.slider(
                         f"Rate this destination",
-                        -1.0, 1.0, 0.0, 0.1,
+                        0.0, 1.0, 0.0, 0.1,
                         key=f"rating_{idx}_{i}"
                     )
                 with col2:
                     if st.button("Submit", key=f"submit_{idx}_{i}"):
-                        st.session_state.agent.update(idx, rating)
+                        st.session_state.agent.update(idx, (1.0 + rating))
                         st.session_state.feedback_count += 1
                         st.success("✅ Feedback recorded!")
                         st.rerun()

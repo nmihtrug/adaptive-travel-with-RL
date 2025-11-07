@@ -62,7 +62,7 @@ def context_to_vector(user, feature_columns):
 
 def get_recommendations_egreedy(agent, places, top_k=10):
     """Get top-k recommendations from Epsilon-Greedy."""
-    ranked_indices = agent.select_arm()
+    ranked_indices = agent.select_arm(top_k)
     recommendations = []
     for idx in ranked_indices:
         recommendations.append({
@@ -80,7 +80,7 @@ def get_recommendations_linucb(agent, places, user, feature_columns, top_k=10):
     """Get top-k recommendations from LinUCB."""
     x = context_to_vector(user, feature_columns)
     
-    ranked_indices, scores = agent.select_arm()
+    ranked_indices, scores = agent.select_arm(x, top_k)
     recommendations = []
     for idx in ranked_indices:
         recommendations.append({
@@ -103,7 +103,7 @@ def get_recommendations_ts(agent, places, user, feature_columns, top_k=10, seed=
     if seed is not None:
         np.random.seed(seed)
     
-    ranked_indices, sampled_rewards = agent.select_arm()
+    ranked_indices, sampled_rewards = agent.select_arm(x, top_k)
     recommendations = []
     for idx in ranked_indices:
         recommendations.append({
