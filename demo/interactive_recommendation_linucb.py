@@ -115,16 +115,8 @@ def main():
     
     st.subheader(f"✈️ Top 10 Personalized Recommendations for User {st.session_state.selected_user}")
     
-    # Calculate scores for all places
-    scores = []
-    for arm in range(len(st.session_state.places)):
-        A_inv = np.linalg.inv(st.session_state.agent.A[arm])
-        theta = A_inv @ st.session_state.agent.b[arm]
-        score = theta @ x + st.session_state.agent.alpha * np.sqrt(x @ A_inv @ x)
-        scores.append(score)
-    
-    # Get top-10 recommendations
-    ranked_indices = np.argsort(scores)[::-1][:10]
+    # # Get top-10 recommendations
+    ranked_indices, scores = st.session_state.agent.select_arm(x, 10)
     
     # Display recommendations
     cols = st.columns(2)
@@ -150,7 +142,7 @@ def main():
                 with col1:
                     rating = st.slider(
                         f"Rate this destination",
-                        -1.0, 1.0, 0.0, 0.1,
+                        0.0, 1.0, 0.0, 0.1,
                         key=f"rating_{idx}_{i}"
                     )
                 with col2:

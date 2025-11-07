@@ -126,16 +126,8 @@ def main():
         # Set random seed for reproducibility
         np.random.seed(st.session_state.recommendation_seed)
         
-        # Calculate Thompson Sampling scores
-        sampled_rewards = []
-        for arm in range(st.session_state.agent.n_arms):
-            B_inv = np.linalg.inv(st.session_state.agent.B[arm])
-            mu_hat = B_inv @ st.session_state.agent.f[arm]
-            theta_sample = np.random.multivariate_normal(mu_hat, st.session_state.agent.alpha**2 * B_inv)
-            sampled_rewards.append(theta_sample @ x)
-        
         # Get top-10 recommendations
-        ranked_indices = np.argsort(sampled_rewards)[::-1][:10]
+        ranked_indices, sampled_rewards = st.session_state.agent.select_arm(x, 10)
         
         # Cache the recommendations
         st.session_state.cached_recommendations = [(idx, sampled_rewards[idx]) for idx in ranked_indices]
@@ -168,7 +160,7 @@ def main():
                 with col1:
                     rating = st.slider(
                         f"Rate this destination",
-                        -1.0, 1.0, 0.0, 0.1,
+                        0.0, 1.0, 0.0, 0.1,
                         key=f"rating_{idx}_{i}"
                     )
                 with col2:
